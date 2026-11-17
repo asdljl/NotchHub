@@ -41,7 +41,7 @@ use tokio::io::AsyncWriteExt;
 use std::os::windows::process::CommandExt;
 
 /// Where releases are published when nothing else is configured.
-const DEFAULT_REPO: &str = "qdy/NotchHub";
+const DEFAULT_REPO: &str = "asdljl/NotchHub";
 const DEFAULT_API: &str = "https://api.github.com";
 
 /// Event channel the front end listens to for download progress.

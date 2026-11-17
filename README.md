@@ -139,7 +139,7 @@ npm run tauri build   # 打包安装程序
 
 | 时机 | 变量 | 说明 |
 | --- | --- | --- |
-| 构建时 | `NOTCHHUB_UPDATE_REPO` | `owner/repo`，也接受完整 GitHub URL 或 `git@` 写法。默认 `qdy/NotchHub`。 |
+| 构建时 | `NOTCHHUB_UPDATE_REPO` | `owner/repo`，也接受完整 GitHub URL 或 `git@` 写法。默认 `asdljl/NotchHub`。 |
 | 构建时 | `NOTCHHUB_GITHUB_API` | API 根地址，默认 `https://api.github.com`，可指向 GitHub Enterprise 或镜像。 |
 | 运行时 | `NOTCHHUB_GITHUB_TOKEN` | 匿名调用限 60 次/小时；私有仓库的资产下载也必须带 token。 |
 
