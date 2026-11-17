@@ -1,6 +1,6 @@
 [package]
 name = "notchhub"
-version = "0.1.0"
+version = "0.2.0"
 description = "NotchHub - a Windows dynamic island for timers and todos"
 authors = ["qdy"]
 edition = "2024"
