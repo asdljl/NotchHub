@@ -1,0 +1,3203 @@
+/* ==========================================================================
+   NotchHub — design tokens
+
+   Everything in this file lives in the `app` cascade layer (declared in
+   shadcn.css). Tailwind utilities from shadcn/ui therefore take precedence on
+   the elements they own, while the island's bespoke geometry and motion keep
+   working exactly as before.
+   ========================================================================== */
+
+@layer app {
+
+:root {
+  color-scheme: dark;
+
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.18);
+  --ok: #30d158;
+  --warn: #ff9f0a;
+
+  --text: #f5f5f7;
+  --text-2: rgba(255, 255, 255, 0.56);
+  --text-3: rgba(255, 255, 255, 0.32);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Slow start, fast middle, soft landing — a 454px height change over
+     --ease would lurch on frame one. */
+  --ease-shell: cubic-bezier(0.45, 0, 0.15, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI",
+    system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  /* Keep the border *style* solid so Tailwind's `border` utility works on
+     shadcn buttons; width stays zero for the legacy bare buttons. */
+  border: 0 solid transparent;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+input {
+  font-family: inherit;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+svg {
+  display: block;
+}
+
+/* ==========================================================================
+   Stage + island shell
+   ========================================================================== */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.island {
+  position: relative;
+  width: var(--capsule-w, 240px);
+  height: var(--capsule-h, 36px);
+  border-radius: 0 0 calc(var(--capsule-h, 36px) / 2)
+    calc(var(--capsule-h, 36px) / 2);
+  background-color: rgba(9, 9, 13, var(--island-alpha, 1));
+  /* The native window is only 40x60px larger than the panel (see MARGIN_W /
+     MARGIN_H in lib.rs). Any shadow wider than that slack is hard-clipped by
+     the transparent window bounds and reads as a giant black rectangle, so
+     keep the blur + spread well inside it. */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.085),
+    0 8px 20px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  /* Collapsing uses this (faster) timing; expanding overrides it below. */
+  transition:
+    width 320ms var(--ease-shell),
+    height 320ms var(--ease-shell),
+    border-radius 260ms var(--ease-shell),
+    box-shadow 240ms ease;
+}
+
+.island::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.032) 0%,
+    rgba(255, 255, 255, 0) 30px
+  );
+}
+
+.island[data-open="true"] {
+  width: var(--panel-w, 380px);
+  height: var(--panel-h, 480px);
+  border-radius: 0 0 26px 26px;
+  transition:
+    width 440ms var(--ease-shell),
+    height 440ms var(--ease-shell),
+    border-radius 340ms var(--ease-shell),
+    box-shadow 300ms ease;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 10px 24px -14px rgba(0, 0, 0, 0.55);
+}
+
+/* ==========================================================================
+   Dot mode — the collapsed island shrinks to one round lens.
+
+   The shell keeps its dark background (so opacity still applies and the
+   expand/collapse width-height animation stays identical to capsule mode);
+   only its geometry changes. Everything else lives in .dot below.
+   ========================================================================== */
+
+.island[data-dot="true"][data-open="false"] {
+  width: var(--dot-size, 26px);
+  height: var(--dot-size, 26px);
+  border-radius: 50%;
+  /* The idle waves travel beyond the lens; the panel is invisible while
+     collapsed, so letting children paint outside costs nothing. Opening the
+     island falls back to the base `overflow: hidden`. */
+  overflow: visible;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.11),
+    0 7px 20px -8px rgba(0, 0, 0, 0.9);
+  transition:
+    width 320ms var(--ease-shell),
+    height 320ms var(--ease-shell),
+    border-radius 260ms var(--ease-shell),
+    box-shadow 240ms ease;
+}
+
+.island[data-dot="true"][data-open="false"]:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.24),
+    0 9px 24px -8px rgba(0, 0, 0, 0.95),
+    0 0 18px -4px rgba(255, 255, 255, 0.14);
+}
+
+.island[data-dot="true"][data-open="false"]:active {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 5px 14px -7px rgba(0, 0, 0, 0.95),
+    0 0 22px -4px rgba(10, 132, 255, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   The lens and its layered parts
+   -------------------------------------------------------------------------- */
+
+.dot {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 1;
+  transform: scale(1);
+  /* Shared ripple settings. Every state only overrides these variables. */
+  --wave-rgb: 255, 255, 255;
+  --wave-alpha: 0.22;
+  --wave-cycle: 3200ms;
+  --wave-reach: 44px;
+  transition:
+    opacity 160ms ease,
+    transform 280ms var(--ease),
+    background 220ms ease;
+}
+
+/* --------------------------------------------------------------------------
+   Ripple waves — the shared motion language of every dot state.
+
+   Three rings start at the core and grow outward, one third of a cycle apart,
+   so there is always a wave in flight. Animating width/height (instead of
+   transform: scale) keeps the 1px stroke hairline-thin at every radius.
+   The variables are overridden per state below.
+   -------------------------------------------------------------------------- */
+
+.dot__waves {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.dot__wave {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--wave-rgb), var(--wave-alpha));
+  opacity: 0;
+  pointer-events: none;
+  animation: dot-wave var(--wave-cycle) linear infinite;
+  transition: border-color 240ms ease;
+}
+
+/* Negative delays stagger the three rings from the very first frame. */
+.dot__wave:nth-child(2) {
+  animation-delay: calc(var(--wave-cycle) * -0.333);
+}
+
+.dot__wave:nth-child(3) {
+  animation-delay: calc(var(--wave-cycle) * -0.667);
+}
+
+@keyframes dot-wave {
+  0% {
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+  }
+  7% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0.32;
+  }
+  /* Fade out well before the ring reaches its full radius: at any moment only
+     one strong crest is travelling, with the previous one dissolving behind
+     it. Keeping the crest visible for the whole cycle reads as concentric
+     target rings instead of a wave. */
+  62% {
+    opacity: 0;
+  }
+  100% {
+    width: var(--wave-reach);
+    height: var(--wave-reach);
+    opacity: 0;
+  }
+}
+
+.dot__halo {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  pointer-events: none;
+  transition:
+    border-color 260ms ease,
+    transform 260ms var(--ease),
+    opacity 200ms ease;
+}
+
+.dot__core {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  pointer-events: none;
+  transition:
+    background 260ms ease,
+    box-shadow 260ms ease,
+    transform 260ms var(--ease),
+    filter 260ms ease,
+    opacity 200ms ease;
+}
+
+/* Running timer: the halo gives way to a real progress ring. */
+.dot__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.dot__ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.13);
+  stroke-width: 1.5;
+}
+
+/* A short highlight travelling around the progress track — the timer feels
+   alive even while the remaining fraction barely changes second to second. */
+.dot__ring-scan {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-dasharray: 7 58.35;
+  transform-origin: 13px 13px;
+  animation: dot-scan 2400ms linear infinite;
+}
+
+@keyframes dot-scan {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dot__ring-value {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 13px 13px;
+  transition: stroke-dashoffset 180ms linear;
+}
+
+.dot__pulse {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 159, 10, 0.6);
+  pointer-events: none;
+  animation: dot-pulse 1700ms ease-out infinite;
+}
+
+@keyframes dot-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.82);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+.dot__check {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.dot__check path {
+  stroke-dasharray: 15;
+  animation: dot-check 440ms var(--ease) both;
+}
+
+@keyframes dot-check {
+  from {
+    stroke-dashoffset: 15;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* "N timers still running". Sits just outside the lens so the check and the
+   ripples stay unobstructed, and makes a completion notice non-destructive:
+   one green tick never means "everything else stopped". */
+.dot__badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 3;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  border-radius: 6px;
+  background: var(--accent);
+  border: 1px solid rgba(8, 12, 18, 0.85);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 10px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   Semantic states — colour, glow, mark and each ripple's own rhythm
+   -------------------------------------------------------------------------- */
+
+/* idle (the default): slow white water ripples + a barely-there core breath. */
+.dot[data-state="idle"] .dot__core {
+  animation: dot-core-breathe 3200ms ease-in-out infinite;
+}
+
+@keyframes dot-core-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.dot[data-state="todo"] {
+  --wave-rgb: 48, 209, 88;
+  --wave-alpha: 0.32;
+  --wave-cycle: 2600ms;
+}
+
+.dot[data-state="todo"] .dot__core {
+  background: var(--ok);
+  box-shadow: 0 0 9px 1px rgba(48, 209, 88, 0.5);
+  animation: dot-core-breathe 2600ms ease-in-out infinite;
+}
+
+.dot[data-state="todo"] .dot__halo {
+  border-color: rgba(48, 209, 88, 0.22);
+}
+
+.dot[data-state="timer"] {
+  --wave-rgb: 10, 132, 255;
+  --wave-alpha: 0.3;
+  --wave-cycle: 2400ms;
+}
+
+.dot[data-state="timer"] .dot__core {
+  background: var(--accent);
+  box-shadow: 0 0 10px 1px rgba(10, 132, 255, 0.55);
+  animation: dot-core-beat 1600ms ease-in-out infinite;
+}
+
+@keyframes dot-core-beat {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.68;
+  }
+}
+
+.dot[data-state="timer"] .dot__halo {
+  opacity: 0;
+}
+
+.dot[data-state="reminder"] {
+  --wave-rgb: 255, 159, 10;
+  --wave-alpha: 0.52;
+  --wave-cycle: 1700ms;
+  --wave-reach: 48px;
+}
+
+.dot[data-state="reminder"] .dot__core {
+  background: var(--warn);
+  box-shadow: 0 0 11px 2px rgba(255, 159, 10, 0.65);
+  animation: dot-blink 1100ms ease-in-out infinite;
+}
+
+.dot[data-state="reminder"] .dot__halo {
+  border-color: rgba(255, 159, 10, 0.4);
+}
+
+@keyframes dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* done: one green wave on arrival, then it rests on the drawn check. */
+.dot[data-state="done"] {
+  --wave-rgb: 48, 209, 88;
+  --wave-alpha: 0.6;
+  --wave-reach: 46px;
+}
+
+.dot[data-state="done"] .dot__waves {
+  display: none;
+}
+
+.dot__done-wave {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--wave-rgb), var(--wave-alpha));
+  pointer-events: none;
+  animation: dot-wave 1050ms ease-out 1 both;
+}
+
+.dot[data-state="done"] .dot__core {
+  opacity: 0;
+  transform: scale(0.45);
+}
+
+.dot[data-state="done"] .dot__halo {
+  border-color: rgba(48, 209, 88, 0.42);
+}
+
+/* --------------------------------------------------------------------------
+   Interaction states — hover lifts the lens, press contracts it
+   -------------------------------------------------------------------------- */
+
+.island[data-open="false"] .dot:hover {
+  /* Same rhythm, brighter crests — no duration change, so the waves never
+     jump when the pointer arrives. */
+  --wave-alpha: 0.48;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.island[data-open="false"] .dot:hover .dot__core {
+  transform: scale(1.34);
+  filter: brightness(1.28);
+}
+
+.island[data-open="false"] .dot:hover .dot__halo {
+  transform: scale(1.14);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.island[data-open="false"] .dot:active {
+  --wave-alpha: 0.62;
+  --wave-rgb: 160, 205, 255;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* A single, faster wave answers the press. */
+.island[data-open="false"] .dot:active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  animation: dot-tap 560ms ease-out 1 both;
+}
+
+@keyframes dot-tap {
+  0% {
+    width: 8px;
+    height: 8px;
+    opacity: 0.85;
+  }
+  100% {
+    width: 46px;
+    height: 46px;
+    opacity: 0;
+  }
+}
+
+.island[data-open="false"] .dot:active .dot__core {
+  transform: scale(0.86);
+  filter: brightness(1.35);
+}
+
+.island[data-open="false"] .dot:active .dot__halo {
+  transform: scale(0.9);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* Opening: the core flashes outward once while the dot cross-fades into the
+   panel, so "hover -> activated -> expanded" reads as one continuous motion. */
+.island[data-open="true"] .dot {
+  opacity: 0;
+  transform: scale(0.86);
+  pointer-events: none;
+  transition-duration: 170ms;
+  transition-delay: 30ms;
+}
+
+.island[data-open="true"] .dot .dot__core {
+  transform: scale(1.5);
+  filter: brightness(1.35);
+}
+
+/* --------------------------------------------------------------------------
+   Dot <-> notch morph. Only while the shape is actually changing (App sets
+   data-morphing for ~300ms), so the expand/collapse cross-fade above keeps
+   its own timing. Newly mounted content fades in while the shell animates
+   width/height/border-radius along the very same --ease-shell curve.
+   -------------------------------------------------------------------------- */
+
+.island[data-morphing="true"][data-open="false"] > .dot,
+.island[data-morphing="true"][data-open="false"]
+  > .capsule:not([data-mode="done"]):not([data-mode="reminder"]) {
+  animation: shape-in 260ms var(--ease) both;
+}
+
+@keyframes shape-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Collapsed capsule
+   ========================================================================== */
+
+.capsule {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: var(--capsule-w, 240px);
+  height: var(--capsule-h, 36px);
+  padding: 0 13px calc(var(--capsule-h, 36px) * 0.14);
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  opacity: 1;
+  cursor: pointer;
+  transition:
+    opacity 140ms ease,
+    transform 300ms var(--ease);
+}
+
+.capsule[data-mode="done"] {
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  padding: 0 12px calc(var(--capsule-h, 36px) * 0.12);
+  animation: capsule-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.capsule[data-mode="reminder"] {
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  padding: 0 12px calc(var(--capsule-h, 36px) * 0.12);
+  animation: capsule-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.capsule[data-mode="reminder"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    75% 140% at 50% 0%,
+    rgba(255, 159, 10, 0.18) 0%,
+    rgba(255, 159, 10, 0) 72%
+  );
+}
+
+@keyframes capsule-pop {
+  0% {
+    transform: translateX(-50%) scale(0.95);
+  }
+  55% {
+    transform: translateX(-50%) scale(1.025);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.island[data-open="true"] .capsule {
+  opacity: 0;
+  transform: translateX(-50%) scale(0.96);
+  pointer-events: none;
+  transition-duration: 170ms;
+  transition-delay: 30ms;
+}
+
+.capsule[data-mode="timer"] {
+  grid-template-columns: 16px 1fr auto;
+  padding-left: 12px;
+}
+
+.capsule-ring {
+  width: 16px;
+  height: 16px;
+  justify-self: center;
+  align-self: center;
+}
+
+.capsule-ring__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 2;
+}
+
+.capsule-ring__value {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 8px 8px;
+  transition: stroke-dashoffset 140ms linear;
+}
+
+/* Collapsed capsule is the click target in "click" mode — make that legible. */
+.island[data-open="false"] .capsule::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 160% at 50% 0%,
+    rgba(255, 255, 255, 0.17) 0%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.island[data-open="false"] .capsule:hover::after {
+  opacity: 1;
+}
+
+.island[data-open="false"] .capsule:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.capsule__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  justify-self: center;
+  transition: background 300ms ease;
+}
+
+.capsule__dot[data-tone="timer"] {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.6);
+  animation: pulse-dot 2s ease-out infinite;
+}
+
+.capsule__dot[data-tone="todo"] {
+  background: var(--ok);
+}
+
+@keyframes pulse-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(10, 132, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
+  }
+}
+
+.capsule__main {
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.capsule__main[data-tone="timer"] {
+  color: #59a7ff;
+}
+
+.capsule__main[data-tone="done"] {
+  color: var(--ok);
+}
+
+/* Two independent counters share the right-hand slot. Keep a 20px
+   placeholder even when empty so the centred clock never shifts. */
+.capsule__badges {
+  min-width: 20px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.capsule__badge {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 240ms ease, color 240ms ease;
+}
+
+.capsule__badge[data-visible="false"] {
+  opacity: 0;
+}
+
+.capsule__badge[data-tone="active"] {
+  background: rgba(48, 209, 88, 0.18);
+  color: #6ee28a;
+}
+
+.capsule__badge[data-tone="timer"] {
+  background: rgba(10, 132, 255, 0.24);
+  color: #7cc2ff;
+}
+
+.capsule__badge[data-tone="done"] {
+  background: rgba(48, 209, 88, 0.2);
+  color: #6ee28a;
+}
+
+.capsule__badge[data-tone="warn"] {
+  background: rgba(255, 159, 10, 0.22);
+  color: #ffc46b;
+}
+
+/* --------------------------------------------------------------------------
+   Completion mark — pulse, sparks, then the check draws itself
+   -------------------------------------------------------------------------- */
+
+.capsule__event-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  color: rgba(255, 255, 255, 0.94);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: title-in 400ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+}
+
+@keyframes title-in {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.done-mark {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  justify-self: center;
+  align-self: center;
+  animation: mark-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes mark-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.done-mark__ring {
+  fill: none;
+  stroke: rgba(48, 209, 88, 0.28);
+  stroke-width: 1.6;
+}
+
+.done-mark__pulse {
+  fill: none;
+  stroke: #30d158;
+  stroke-width: 1.3;
+  transform-origin: 12px 12px;
+  opacity: 0;
+  animation: mark-pulse 900ms cubic-bezier(0.22, 1, 0.36, 1) 240ms 2;
+}
+
+@keyframes mark-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.done-mark__spark {
+  stroke: #30d158;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: spark-fly 660ms cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
+}
+
+@keyframes spark-fly {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scaleY(0.5);
+  }
+  25% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3.6px) scaleY(1.05);
+  }
+}
+
+.done-mark__check {
+  fill: none;
+  stroke: #30d158;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 15;
+  stroke-dashoffset: 15;
+  animation: check-draw 440ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ==========================================================================
+   Expanded panel
+   ========================================================================== */
+
+.panel {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  width: var(--panel-w, 380px);
+  height: var(--panel-h, 480px);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  /* Dot mode lets the shell's children paint outside the lens, so the panel
+     must become invisible the instant we start collapsing — otherwise its
+     380px-wide content would spill out beside the shrinking 26px circle.
+     visibility flips in 0s while opacity still cross-fades. */
+  visibility: hidden;
+  transition: opacity 140ms ease, visibility 0s linear 0s;
+}
+
+.island[data-open="true"] .panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 210ms ease 190ms, visibility 0s linear 0s;
+}
+
+.panel__header {
+  position: relative;
+  flex: none;
+  height: 50px;
+  padding: 8px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel__close {
+  position: absolute;
+  right: 12px;
+  top: 15px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.3);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.panel__close:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* tabs */
+
+.tabs {
+  position: relative;
+  display: flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.tabs__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 62px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  transition: transform 340ms var(--ease);
+}
+
+.tab {
+  position: relative;
+  z-index: 1;
+  width: 62px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.38);
+  transition: color 220ms ease;
+}
+
+.tab[data-active="true"] {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.tab:not([data-active="true"]):hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tab__count {
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: rgba(48, 209, 88, 0.24);
+  color: #6ee28a;
+  font-size: 8.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* A release is waiting: one small dot, no layout shift in the tab row. */
+.tab__dot {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #0a84ff;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.16);
+  animation: tab-dot-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes tab-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.panel__view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  animation: view-in 260ms var(--ease) both;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Timer list
+   ========================================================================== */
+
+.timer-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 16px 14px;
+}
+
+.timer-list__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clear-done {
+  flex: none;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 14px;
+  background: rgba(48, 209, 88, 0.12);
+  color: rgba(126, 226, 150, 0.9);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.clear-done:hover {
+  background: rgba(48, 209, 88, 0.22);
+  color: #9af0ae;
+}
+
+.clear-done:active {
+  transform: scale(0.97);
+}
+
+.add-timer {
+  flex: none;
+  align-self: flex-start;
+  height: 34px;
+  padding: 0 16px 0 13px;
+  border-radius: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  transition: background 160ms ease, transform 120ms ease;
+}
+
+.add-timer:hover {
+  background: rgba(255, 255, 255, 0.145);
+}
+
+.add-timer:active {
+  transform: scale(0.98);
+}
+
+.add-timer:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timer-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.timer-rows::-webkit-scrollbar {
+  width: 5px;
+}
+
+.timer-rows::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.timer-row {
+  flex: none;
+  height: 58px;
+  padding: 0 8px 0 12px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  transition: background 160ms ease;
+  animation: item-in 240ms var(--ease) both;
+}
+
+.timer-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.timer-row[data-phase="done"] {
+  background: rgba(48, 209, 88, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(48, 209, 88, 0.16);
+}
+
+.progress-ring {
+  flex: none;
+  color: var(--accent);
+}
+
+.timer-row__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Title + shadcn status badge share one line. */
+.timer-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.timer-row__title {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.timer-row__time {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.timer-row[data-phase="done"] .timer-row__time {
+  color: var(--ok);
+}
+
+.timer-row[data-phase="paused"] .timer-row__time {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.row-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.row-btn:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: #fff;
+}
+
+.row-btn:active {
+  transform: scale(0.94);
+}
+
+.timer-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.2);
+  padding-bottom: 40px;
+}
+
+/* ==========================================================================
+   Timer create
+   ========================================================================== */
+
+.timer-create {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 18px 16px;
+}
+
+.create-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 42px;
+}
+
+.ghost-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.62);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.create-title {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 11px;
+  border: 0;
+  outline: none;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 12.5px;
+}
+
+.create-title::placeholder {
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.create-title:focus {
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.5);
+}
+
+.create-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wheels {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wheels::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  pointer-events: none;
+}
+
+.wheel {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 132px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-top: 44px;
+  padding-bottom: 44px;
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 30%,
+    #000 70%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 30%,
+    #000 70%,
+    transparent 100%
+  );
+}
+
+.wheel:active {
+  cursor: grabbing;
+}
+
+.wheel::-webkit-scrollbar {
+  display: none;
+}
+
+.wheel__item {
+  height: 44px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(255, 255, 255, 0.26);
+  scroll-snap-align: center;
+  transition: color 180ms ease;
+}
+
+.wheel__num {
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wheel__suffix {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.22);
+  transition: color 180ms ease;
+}
+
+.wheel__item[data-active="true"] .wheel__num {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.wheel__item[data-active="true"] .wheel__suffix {
+  color: rgba(89, 167, 255, 0.7);
+}
+
+.wheel-sep {
+  z-index: 1;
+  flex: none;
+  padding-bottom: 4px;
+  font-size: 17px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.16);
+}
+
+.create-side {
+  flex: none;
+  width: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.play-big {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #3a9bff 0%, #0a84ff 100%);
+  color: #fff;
+  box-shadow:
+    0 10px 24px -8px rgba(10, 132, 255, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: filter 160ms ease, transform 120ms ease;
+  padding-left: 3px;
+}
+
+.play-big:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.play-big:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.play-big:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.24);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+
+.preset-chip {
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.preset-chip:active {
+  transform: scale(0.94);
+}
+
+.preset-chip:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.preset-chip[data-active="true"] {
+  background: var(--accent-soft);
+  color: #59a7ff;
+}
+
+/* ==========================================================================
+   Settings
+   ========================================================================== */
+
+.settings {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 18px 16px;
+  overflow-y: auto;
+}
+
+/* A flex column with scrolling must not squash its cards to fit — otherwise
+   the round-corner list clips the last row's text. */
+.settings > * {
+  flex-shrink: 0;
+}
+
+.settings__intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.settings__sub {
+  font-size: 9.5px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.settings__list {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  overflow: hidden;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 50px;
+  padding: 0 10px 0 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.setting-row:first-child {
+  border-top: 0;
+}
+
+.setting-row__label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.setting-row--switch {
+  min-height: 58px;
+}
+
+.setting-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.setting-row__desc {
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* The 圆点模式 toggle now comes from shadcn/ui's Radix Switch; the old
+   hand-rolled .switch/.switch__knob rules were removed with it. */
+
+.field {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 30px;
+  padding: 0 9px 0 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.field:focus-within {
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.55);
+}
+
+.field__input {
+  width: 46px;
+  border: 0;
+  outline: none;
+  background: none;
+  color: #fff;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.field__input::-webkit-outer-spin-button,
+.field__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.field__suffix {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* Native <select> controls were replaced by shadcn/ui's Radix Select, which
+   portals its popup and needs none of the old shell styling. */
+
+.settings__caption {
+  margin-top: -6px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.settings__hint {
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.settings__foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.settings__reset {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.75);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.settings__reset:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.settings__reset:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.settings__note {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.24);
+}
+
+/* ==========================================================================
+   Update (GitHub Releases)
+   ========================================================================== */
+
+.update__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 50px;
+  padding: 8px 10px 8px 14px;
+}
+
+.update__version {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.update__version-line {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.update__version-sub {
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.update__notes {
+  max-height: 112px;
+  overflow-y: auto;
+  margin: 0 10px 10px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+  /* Fade the last line so a scrollable changelog never looks clipped. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+}
+
+.update__notes:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.55);
+}
+
+.update__notes-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.42);
+  margin-bottom: 4px;
+}
+
+.update__notes-more {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.24);
+}
+
+.update__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.update__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+.update__meta > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 69, 58, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 69, 58, 0.18);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #ff8a80;
+}
+
+.update__error-detail {
+  margin-top: 3px;
+  font-size: 9.5px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.32);
+  word-break: break-all;
+  /* Raw causes (JSON error bodies) can be long; keep the card compact and
+     leave the full text in the `title` tooltip. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.update__ready {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.update__ready > svg {
+  margin-top: 1px;
+  flex: none;
+}
+
+.update__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.update__hint {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Todo
+   ========================================================================== */
+
+.todo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 2px 16px 12px;
+}
+
+.todo__new {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: box-shadow 180ms ease, background 180ms ease;
+}
+
+.todo__new:focus-within {
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 0 0 1px rgba(48, 209, 88, 0.45);
+}
+
+.todo__add {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.todo__add:hover:not(:disabled) {
+  background: rgba(48, 209, 88, 0.26);
+  color: #6ee28a;
+}
+
+.todo__add:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.todo__add:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.todo__new input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: #fff;
+  font-size: 13px;
+}
+
+.todo__new input::placeholder {
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.todo__new-hint {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px 4px;
+  line-height: 1.2;
+}
+
+.todo__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 6px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.todo__list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.todo__list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 5px 4px 5px 6px;
+  border-radius: 8px;
+  transition: background 140ms ease;
+  animation: item-in 240ms var(--ease) both;
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.item__check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease,
+    transform 120ms ease;
+}
+
+.item__check:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.item__check:active {
+  transform: scale(0.9);
+}
+
+.item[data-done="true"] .item__check {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #06210d;
+}
+
+.item__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item__text {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 140ms ease;
+}
+
+/* The text is a button: clicking it starts an inline rename. */
+.item__text:hover {
+  color: #fff;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.35);
+  text-underline-offset: 3px;
+}
+
+.item__text:focus-visible {
+  outline: 1px solid rgba(10, 132, 255, 0.7);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.item[data-done="true"] .item__text {
+  color: rgba(255, 255, 255, 0.28);
+  text-decoration: line-through;
+}
+
+.item__edit {
+  min-height: 24px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.item__reminder {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 159, 10, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+
+.item__action {
+  flex: none;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.24);
+  /* shadcn ghost buttons: keep the row actions faint but discoverable,
+     instead of vanishing completely until hover. */
+  opacity: 0.32;
+  transition: opacity 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.item__action + .item__action {
+  margin-left: -3px;
+}
+
+.item:hover .item__action {
+  opacity: 1;
+}
+
+.item__action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.item__action[data-starred="true"] {
+  opacity: 1;
+  color: #ffd60a;
+}
+
+.item__action[data-reminder="true"] {
+  opacity: 1;
+  color: var(--warn);
+}
+
+.item__action[data-bell="true"] {
+  opacity: 0.34;
+}
+
+.item:hover .item__action[data-bell="true"] {
+  opacity: 1;
+}
+
+/* "Remind me later" strip, shown under a todo that just rang */
+.snooze {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -2px 4px 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 159, 10, 0.07);
+  animation: snooze-in 260ms var(--ease) both;
+}
+
+.snooze__label {
+  margin-right: 2px;
+  font-size: 10.5px;
+  color: rgba(255, 159, 10, 0.72);
+}
+
+.snooze__chip {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.14);
+  color: #ffc46b;
+  font-size: 10.5px;
+  font-weight: 600;
+  transition: background 160ms ease, transform 120ms ease;
+}
+
+.snooze__chip:hover {
+  background: rgba(255, 159, 10, 0.26);
+}
+
+.snooze__chip:active {
+  transform: scale(0.94);
+}
+
+@keyframes snooze-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.todo__section {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  margin-top: 2px;
+  padding: 0 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.todo__section::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.todo__section button {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.26);
+  text-transform: none;
+  transition: color 140ms ease;
+}
+
+.todo__section button:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.todo__empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.22);
+  padding-bottom: 26px;
+}
+
+.todo__footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  margin-top: 6px;
+  padding: 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.todo__footer button {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: color 140ms ease;
+}
+
+.todo__footer button:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.todo__footer button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Projects — filter bar, project cards and the per-task plan chips
+   ========================================================================== */
+
+.todo__toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  margin-bottom: 6px;
+}
+
+.todo__filters {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.todo__filter {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.42);
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.todo__filter:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.todo__filter[data-active="true"] {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.todo__filter-count {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.todo__filter[data-active="true"] .todo__filter-count {
+  background: rgba(10, 132, 255, 0.3);
+  color: #a9d2ff;
+}
+
+.todo__new-project {
+  flex: none;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.42);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.todo__new-project:hover {
+  background: rgba(48, 209, 88, 0.16);
+  color: #8ce8a4;
+}
+
+/* The quick-add row now also carries the destination project. */
+.todo__target {
+  flex: none;
+  max-width: 84px;
+  height: 24px;
+  padding: 0 3px;
+  border: 0;
+  outline: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  font-size: 10.5px;
+  color-scheme: dark;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.todo__target:focus {
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.5);
+}
+
+.todo__new-cancel {
+  flex: none;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 0 2px;
+}
+
+.todo__new-cancel:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.todo__new--project:focus-within {
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.5);
+}
+
+/* --- project card ------------------------------------------------------- */
+
+.project {
+  flex: none;
+  margin-bottom: 9px;
+  padding: 7px 8px 5px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.032);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: item-in 240ms var(--ease) both;
+}
+
+.project[data-standalone="true"] {
+  background: rgba(255, 255, 255, 0.016);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.project__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+}
+
+.project__fold {
+  flex: none;
+  width: 16px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.32);
+  transition: color 150ms ease;
+}
+
+.project__fold svg {
+  transition: transform 220ms var(--ease);
+}
+
+.project__fold:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.project[data-collapsed="true"] .project__fold svg {
+  transform: rotate(-90deg);
+}
+
+.project__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--project-color);
+  box-shadow: 0 0 8px -1px var(--project-color);
+}
+
+.project__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project[data-standalone="true"] .project__name {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.project__rename {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  outline: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.project__meta {
+  flex: none;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.project__action {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.26);
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.project:hover .project__action,
+.project__action:focus-visible {
+  opacity: 1;
+}
+
+.project__action:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.project__bar {
+  height: 3px;
+  margin: 6px 2px 3px 22px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.065);
+  overflow: hidden;
+}
+
+.project__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--project-color);
+  opacity: 0.8;
+  transition: width 320ms var(--ease);
+}
+
+.project__items {
+  display: flex;
+  flex-direction: column;
+}
+
+.project .item {
+  min-height: 36px;
+  padding: 4px 2px 4px 3px;
+  gap: 7px;
+}
+
+.project__all-done {
+  padding: 5px 4px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.26);
+}
+
+.project__done-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  padding: 0 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: color 140ms ease;
+}
+
+.project__done-toggle span {
+  color: rgba(255, 255, 255, 0.24);
+}
+
+.project__done-toggle:hover,
+.project__done-toggle:hover span {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.project__add {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.28);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.project__add:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.project__inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.project__inline input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+}
+
+.project__inline input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.project__inline-add {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  background: rgba(48, 209, 88, 0.22);
+  color: #8ce8a4;
+}
+
+.project__inline-add:disabled {
+  opacity: 0.4;
+}
+
+.project__inline-cancel {
+  flex: none;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.project__inline-cancel:hover {
+  color: #fff;
+}
+
+.project__confirm {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 7px 0 3px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: rgba(255, 69, 58, 0.1);
+  font-size: 10px;
+  color: rgba(255, 160, 154, 0.9);
+}
+
+.project__confirm > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.project__confirm button {
+  flex: none;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.project__confirm button:hover {
+  color: #fff;
+}
+
+.project__confirm-delete {
+  font-weight: 600;
+  color: #ff8b80 !important;
+}
+
+/* --- per-task plan chip -------------------------------------------------- */
+
+.item__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-height: 14px;
+  max-width: 100%;
+}
+
+.item__plan {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+  font-size: 9.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.46);
+  transition: background 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.item__plan:hover {
+  filter: brightness(1.35);
+}
+
+.item__plan[data-empty="true"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
+  color: rgba(255, 255, 255, 0.3);
+  opacity: 0.55;
+}
+
+.item:hover .item__plan[data-empty="true"] {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.item__plan[data-tone="today"] {
+  background: rgba(10, 132, 255, 0.2);
+  color: #8ec2ff;
+}
+
+.item__plan[data-tone="tomorrow"] {
+  background: rgba(191, 90, 242, 0.18);
+  color: #d7aaff;
+}
+
+.item__plan[data-tone="overdue"] {
+  background: rgba(255, 69, 58, 0.18);
+  color: #ff9a90;
+}
+
+.item__plan[data-tone="later"] {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.48);
+}
+
+/* ==========================================================================
+   Task sheet — plan day, project and reminder in one place
+   ========================================================================== */
+
+.sheet--task {
+  max-height: calc(100% - 24px);
+}
+
+/* The action bar is a sibling, not an overlay: only this region scrolls, so
+   an expanded calendar can never hide 取消 / 保存 or be covered by them. */
+.task-sheet__scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.task-sheet__label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.task-sheet__chips {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-sheet__chip {
+  flex: none;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.task-sheet__chip[data-active="true"] {
+  background: rgba(10, 132, 255, 0.28);
+  color: #a9d2ff;
+}
+
+.task-sheet__chip:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* shadcn Calendar is expanded inline inside the scrollable sheet. */
+.task-sheet__calendar {
+  margin: 6px 0 4px;
+}
+
+.task-sheet__date-trigger {
+  font-variant-numeric: tabular-nums;
+}
+
+.task-sheet__time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The native time picker opens an OS popup that the transparent island clips.
+   Keep the field keyboard/spinner driven and hide its launcher. */
+.task-sheet__time::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.task-sheet__select {
+  height: 32px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.task-sheet__seg {
+  margin: 0;
+}
+
+.task-sheet__body {
+  min-height: 18px;
+}
+
+.sheet--task .sheet__hint {
+  margin-top: 6px;
+}
+
+/* Pinned to the bottom of the scrollable sheet. */
+.sheet--task .sheet__actions {
+  margin-top: 0;
+}
+
+/* ==========================================================================
+   Sheet backdrop — used by TaskSheet
+   ========================================================================== */
+
+.sheet-backdrop {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--panel-w, 380px);
+  height: var(--panel-h, 480px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 0 0 26px 26px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.55);
+  animation: fade-in 150ms ease both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  max-width: 320px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #17171c;
+  box-shadow:
+    0 24px 60px -12px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: sheet-in 220ms var(--ease) both;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sheet__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sheet__title {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sheet__todo {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.36);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.seg {
+  display: flex;
+  padding: 3px;
+  margin: 13px 0 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.seg__item {
+  flex: 1;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.seg__item[data-active="true"] {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheet__input {
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  border: 0;
+  outline: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  color-scheme: dark;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet__input:focus {
+  box-shadow: inset 0 0 0 1px rgba(255, 159, 10, 0.55);
+}
+
+.sheet__hint {
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.sheet__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sheet__clear,
+.sheet__save {
+  flex: 1;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.sheet__clear {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sheet__clear:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.sheet__clear:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sheet__save {
+  background: linear-gradient(180deg, #ffb43a 0%, #ff9f0a 100%);
+  color: #241704;
+  box-shadow: 0 8px 20px -10px rgba(255, 159, 10, 0.75);
+}
+
+.sheet__save:hover {
+  filter: brightness(1.06);
+}
+
+/* ==========================================================================
+   Shared empty state text
+   ========================================================================== */
+
+.empty__title {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.empty__hint {
+  max-width: 210px;
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.22);
+}
+
+
+/* --------------------------------------------------------------------------
+   Reminder mark — a bell swings while sound rings expand
+   -------------------------------------------------------------------------- */
+
+.bell-mark {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  justify-self: center;
+  align-self: center;
+}
+
+.bell-mark__halo {
+  fill: none;
+  stroke: rgba(255, 159, 10, 0.3);
+  stroke-width: 1.6;
+}
+
+.bell-mark__pulse {
+  fill: none;
+  stroke: #ff9f0a;
+  stroke-width: 1.3;
+  transform-origin: 12px 12px;
+  opacity: 0;
+  animation: bell-pulse 1100ms cubic-bezier(0.22, 1, 0.36, 1) 140ms 3;
+}
+
+@keyframes bell-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.bell-mark__body {
+  transform-origin: 12px 3.8px;
+  animation: bell-swing 950ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 2;
+}
+
+@keyframes bell-swing {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  12% {
+    transform: rotate(13deg);
+  }
+  28% {
+    transform: rotate(-11deg);
+  }
+  44% {
+    transform: rotate(7deg);
+  }
+  60% {
+    transform: rotate(-4.5deg);
+  }
+  76% {
+    transform: rotate(2deg);
+  }
+}
+
+.bell-mark__shape,
+.bell-mark__clapper {
+  fill: none;
+  stroke: #ff9f0a;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A todo whose reminder is ringing, while the panel is open */
+.item[data-ringing="true"] {
+  background: rgba(255, 159, 10, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 159, 10, 0.18);
+  animation: item-ring 1200ms ease-in-out 3;
+}
+
+@keyframes item-ring {
+  0%,
+  100% {
+    background: rgba(255, 159, 10, 0.05);
+  }
+  50% {
+    background: rgba(255, 159, 10, 0.18);
+  }
+}
+
+/* ==========================================================================
+   Reduced motion — keep every state readable, drop the choreography
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .capsule[data-mode="done"],
+  .capsule[data-mode="reminder"],
+  .bell-mark__body,
+  .bell-mark__pulse,
+  .item[data-ringing="true"],
+  .snooze,
+  .done-mark,
+  .done-mark__pulse,
+  .done-mark__spark,
+  .done-mark__check,
+  .capsule__event-title,
+  .panel__view,
+  .item,
+  .project,
+  .timer-row,
+  .dot__pulse,
+  .dot__wave,
+  .dot__done-wave,
+  .dot__ring-scan,
+  .dot__check path,
+  .dot[data-state="idle"] .dot__core,
+  .dot[data-state="todo"] .dot__core,
+  .dot[data-state="timer"] .dot__core,
+  .dot[data-state="reminder"] .dot__core,
+  .island[data-morphing="true"] > .dot,
+  .island[data-morphing="true"] > .capsule,
+  .island[data-open="false"] .dot:active::after {
+    animation: none !important;
+  }
+
+  .done-mark__spark,
+  .dot__pulse,
+  .dot__waves,
+  .dot__done-wave,
+  .island[data-open="false"] .dot:active::after {
+    display: none;
+  }
+
+  .done-mark__check,
+  .dot__check path {
+    stroke-dashoffset: 0;
+  }
+
+  .island,
+  .capsule,
+  .dot,
+  .dot__core,
+  .dot__halo,
+  .tabs__thumb {
+    transition-duration: 1ms !important;
+  }
+
+  /* shadcn/ui portals + Radix state transitions */
+  [data-slot="dialog-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="select-content"],
+  [data-slot="progress-indicator"],
+  [data-slot="switch-thumb"],
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  [data-slot="tabs-trigger"] {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+} /* /@layer app */

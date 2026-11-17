@@ -1,0 +1,32 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Tauri
+src-tauri/target
+# 构建时生成的权限 schema，跟 tauri 版本走，不入库
+src-tauri/gen/schemas
+
+# 本地工作区记忆（路径、决策记录），不随仓库发布
+.workbuddy
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

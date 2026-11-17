@@ -1,0 +1,44 @@
+# 打 tag 即自动产出 GitHub Release，让应用内的更新检查
+# （读取 releases/latest）总能拿到安装包。不需要可整份删除。
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Windows only: NSIS `*-setup.exe` is what the in-app updater prefers.
+      # The tag must be strictly newer than `src-tauri/tauri.conf.json`'s
+      # `version`, otherwise clients will never see the release.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: NotchHub ${{ github.ref_name }}
+          releaseBody: "见 README 底部的更新说明；安装包支持应用内检查更新。"
+          releaseDraft: true
+          prerelease: false

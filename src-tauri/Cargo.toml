@@ -1,0 +1,36 @@
+[package]
+name = "notchhub"
+version = "0.1.0"
+description = "NotchHub - a Windows dynamic island for timers and todos"
+authors = ["qdy"]
+edition = "2024"
+
+[lib]
+name = "notchhub_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Online updates (src/updater.rs). rustls + the system proxy are reqwest's
+# defaults in 0.13, which means no OpenSSL and corporate/HK proxies keep
+# working without extra configuration.
+reqwest = { version = "0.13", features = ["json", "stream"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt"] }
+semver = "1"
+sha2 = "0.10"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

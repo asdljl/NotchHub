@@ -1,0 +1,101 @@
+/* ==========================================================================
+   shadcn/ui — Tailwind v4 layer for NotchHub
+
+   The island ships 3000+ lines of hand-tuned CSS (dot ripples, shell morph,
+   window-edge shadow budget). Tailwind's preflight would reset all of it, so
+   only theme + utilities are imported here. Everything legacy lives in the
+   `app` layer, which sits *below* utilities: shadcn components win on the
+   elements they own, while the bespoke capsule/dot styles stay untouched.
+   ========================================================================== */
+
+@layer theme, base, app, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+/* Map shadcn's semantic colour names onto the island's dark palette.
+   `--accent` is already taken by NotchHub's blue (#0a84ff), so shadcn's
+   neutral hover colour uses the dedicated `--sh-accent` token instead. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--sh-accent);
+  --color-accent-foreground: var(--sh-accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI",
+    system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  --background: #09090d;
+  --foreground: #f5f5f7;
+
+  --card: rgba(255, 255, 255, 0.045);
+  --card-foreground: #f5f5f7;
+  --popover: #191920;
+  --popover-foreground: #f5f5f7;
+
+  --primary: #0a84ff;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.075);
+  --secondary-foreground: #f5f5f7;
+  --muted: rgba(255, 255, 255, 0.055);
+  --muted-foreground: rgba(255, 255, 255, 0.44);
+  --sh-accent: rgba(255, 255, 255, 0.1);
+  --sh-accent-foreground: #ffffff;
+  --destructive: #ff453a;
+  --destructive-foreground: #ffffff;
+  --success: #30d158;
+  --warning: #ff9f0a;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: rgba(10, 132, 255, 0.6);
+
+  /* Slightly tighter than shadcn's default 0.625rem — the island is 380px
+     wide and every vertical pixel matters. */
+  --radius: 0.625rem;
+}
+
+/* Minimal base rules the utilities rely on. Tailwind's preflight normally
+   supplies `border-style: solid`; without it `border` utilities are invisible.
+   Kept in `base` so the `app` layer can still override where needed. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-style: solid;
+    border-width: 0;
+  }
+
+  ::selection {
+    background: rgba(10, 132, 255, 0.38);
+    color: #fff;
+  }
+}
+
+/* The legacy stylesheet is wrapped in this layer by main.tsx's import order;
+   see styles.css. Utilities therefore win on shadcn-owned elements. */
